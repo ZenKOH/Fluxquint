@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fluxquint™ icon">
+  <defs>
+    <radialGradient id="g" cx="35%" cy="25%" r="80%">
+      <stop offset="0" stop-color="#7cf7e8"/>
+      <stop offset=".48" stop-color="#56a8ff"/>
+      <stop offset="1" stop-color="#6c55d8"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#08101e"/>
+  <circle cx="256" cy="256" r="177" fill="none" stroke="#263955" stroke-width="6"/>
+  <circle cx="256" cy="256" r="128" fill="url(#g)"/>
+  <circle cx="256" cy="256" r="80" fill="#08101e" opacity=".88"/>
+  <path d="M154 256h204M256 154v204" stroke="#dffeff" stroke-width="12" stroke-linecap="round" opacity=".92"/>
+  <circle cx="256" cy="256" r="20" fill="#fff"/>
+  <text x="367" y="148" fill="#fff" font-size="48" font-family="Arial, sans-serif">™</text>
+</svg>

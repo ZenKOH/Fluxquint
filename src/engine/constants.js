@@ -1,0 +1,12 @@
+export const BRAND = 'Fluxquint™';
+export const BOARD_SIZE = 8;
+export const RULESET_VERSION = '1.0.0';
+export const GRAVITY_INTERVAL = 5;
+export const DIRECTIONS = Object.freeze(['DOWN', 'LEFT', 'UP', 'RIGHT']);
+export const RANKS = Object.freeze([1, 2, 3, 4, 5]);
+export const FUSION_SCORE = Object.freeze({ 1: 10, 2: 25, 3: 60, 4: 150 });
+export const QUINT_SCORE = 500;
+export const HARMONIC_SCORE = 1000;
+export const FLUX_BURST_SCORE = 750;
+export const DIRECTION_SYMBOL = Object.freeze({ DOWN: '↓', LEFT: '←', UP: '↑', RIGHT: '→' });
+export const DIRECTION_LABEL = Object.freeze({ DOWN: 'Down', LEFT: 'Left', UP: 'Up', RIGHT: 'Right' });

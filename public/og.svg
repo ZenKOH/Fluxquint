@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#07101f"/><stop offset="1" stop-color="#121c37"/></linearGradient>
+    <radialGradient id="c" cx="30%" cy="20%" r="90%"><stop stop-color="#7cf7e8"/><stop offset=".5" stop-color="#56a8ff"/><stop offset="1" stop-color="#8061ef"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <g transform="translate(100 95)">
+    <circle cx="220" cy="220" r="190" fill="none" stroke="#263d5b" stroke-width="4"/>
+    <circle cx="220" cy="220" r="130" fill="url(#c)"/>
+    <circle cx="220" cy="220" r="74" fill="#07101f" opacity=".9"/>
+    <path d="M110 220h220M220 110v220" stroke="#efffff" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="220" cy="220" r="18" fill="#fff"/>
+  </g>
+  <text x="560" y="245" font-size="78" fill="#f4f7ff" font-family="Inter, Arial, sans-serif" font-weight="700">Fluxquint™</text>
+  <text x="565" y="320" font-size="31" fill="#aebbd1" font-family="Inter, Arial, sans-serif">Aim. Fuse. Complete the five.</text>
+  <text x="565" y="368" font-size="31" fill="#7cf7e8" font-family="Inter, Arial, sans-serif">Control the shift.</text>
+</svg>
