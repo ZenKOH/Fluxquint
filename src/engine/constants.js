@@ -1,6 +1,6 @@
 export const BRAND = 'Fluxquint™';
 export const BOARD_SIZE = 8;
-export const RULESET_VERSION = '1.0.0';
+export const RULESET_VERSION = '1.1.0';
 export const GRAVITY_INTERVAL = 5;
 export const DIRECTIONS = Object.freeze(['DOWN', 'LEFT', 'UP', 'RIGHT']);
 export const RANKS = Object.freeze([1, 2, 3, 4, 5]);

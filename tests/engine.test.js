@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, commitLaunch, previewLaunch, boardSignature } from '../dist/src/engine/game.js';
+import { createGame, commitLaunch, previewLaunch, boardSignature, getDailySeed } from '../dist/src/engine/game.js';
 import { emptyBoard, applyGravity } from '../dist/src/engine/gravity.js';
 import { findQuints } from '../dist/src/engine/quints.js';
 import { exportReplay, verifyReplay, stateChecksum } from '../dist/src/engine/replay.js';
@@ -108,4 +108,38 @@ test('a Flux Choice is replay-safe when used on a shift turn', () => {
   commitLaunch(state, { launcherIndex: 0, angleIndex: 0, powerIndex: 2, bounce: 'NONE', gravityChoice: 'RIGHT' });
   assert.equal(state.gravity, 'RIGHT');
   assert.equal(state.fluxChoices, 0);
+});
+
+test('Daily Quint uses one UTC seed across local time zones', () => {
+  assert.equal(getDailySeed(new Date('2026-07-31T23:59:59-07:00')), 'FQ-DAILY-2026-08-01');
+  assert.equal(getDailySeed(new Date('2026-08-01T07:00:00+08:00')), 'FQ-DAILY-2026-07-31');
+});
+
+test('Counter and clockwise banks are distinct and direction-gated', () => {
+  const state = createGame({ mode: 'lab', seed: 'BANK-TEST' });
+  state.board = emptyBoard();
+  state.queue = [1, 2, 3, 4, 1, 2, 3, 4];
+  state.gravity = 'DOWN';
+  const counter = previewLaunch(state, { launcherIndex: 0, angleIndex: -4, powerIndex: 3, bounce: 'COUNTER' });
+  const wrongCounter = previewLaunch(state, { launcherIndex: 0, angleIndex: -4, powerIndex: 3, bounce: 'CLOCKWISE' });
+  const clockwise = previewLaunch(state, { launcherIndex: 7, angleIndex: 4, powerIndex: 3, bounce: 'CLOCKWISE' });
+  const wrongClockwise = previewLaunch(state, { launcherIndex: 7, angleIndex: 4, powerIndex: 3, bounce: 'COUNTER' });
+  assert.equal(counter.valid, true);
+  assert.equal(counter.bank, 'COUNTER');
+  assert.equal(counter.lane, 3);
+  assert.equal(wrongCounter.valid, false);
+  assert.equal(clockwise.valid, true);
+  assert.equal(clockwise.bank, 'CLOCKWISE');
+  assert.equal(clockwise.lane, 4);
+  assert.equal(wrongClockwise.valid, false);
+});
+
+test('replay verification rejects mismatched rulesets and tampering', () => {
+  const state = createGame({ mode: 'endless', seed: 'REPLAY-HARDENING' });
+  const command = { launcherIndex: 0, angleIndex: 0, powerIndex: 2, bounce: 'NONE' };
+  commitLaunch(state, command);
+  const replay = exportReplay(state);
+  assert.equal(verifyReplay(replay).valid, true);
+  assert.equal(verifyReplay({ ...replay, rulesetVersion: '0.0.0' }).valid, false);
+  assert.equal(verifyReplay({ ...replay, finalStateHash: '00000000' }).valid, false);
 });

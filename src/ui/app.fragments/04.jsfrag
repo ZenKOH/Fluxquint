@@ -1,62 +1,78 @@
+        const key = `${row}:${column}`;
+        cells.push(`<button class="cell ${key === targetKey ? 'target' : ''} ${key === fusionTargetKey ? 'fusion-target' : ''}" data-cell="${row},${column}" aria-label="${core ? `Rank ${core.rank} Core at row ${row + 1}, column ${column + 1}` : `Empty cell row ${row + 1}, column ${column + 1}`}">
+          ${core ? `<span class="core rank-${core.rank}" data-core-id="${core.id}"><i></i><b>${coreGlyph(core.rank, this.settings.symbolic)}</b></span>` : ''}
+          ${key === targetKey && !core ? `<span class="capture-ghost rank-${preview.rank}">${coreGlyph(preview.rank, this.settings.symbolic)}</span>` : ''}
+        </button>`);
+      }
+    }
+    return `<div class="board-zone gravity-${this.state.gravity.toLowerCase()}">
+      ${this.renderLauncher()}
+      <div class="board-shell" id="game-board" role="grid" aria-label="8 by 8 magnetic lattice">
+        <div class="field-lines" aria-hidden="true"></div>
+        <svg class="trajectory" viewBox="0 0 800 800" preserveAspectRatio="none" aria-hidden="true">${preview.valid ? this.renderPath(preview.path) : ''}</svg>
+        <div class="board-grid">${cells.join('')}</div>
+      </div>
+      <div class="gravity-orbit" aria-label="Current gravity ${DIRECTION_LABEL[this.state.gravity]}">${DIRECTION_SYMBOL[this.state.gravity]}</div>
+    </div>`;
+  }
+
+  renderPath(path) {
+    const points = path.map((point) => `${(point.column + 0.5) * 100},${(point.row + 0.5) * 100}`).join(' ');
+    return `<polyline points="${points}" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 12" vector-effect="non-scaling-stroke"/><circle cx="${(path.at(-1).column + 0.5) * 100}" cy="${(path.at(-1).row + 0.5) * 100}" r="12" fill="none" stroke="currentColor" stroke-width="4" vector-effect="non-scaling-stroke"/>`;
+  }
+
+  renderLauncher() {
+    const positions = Array.from({ length: 8 }, (_, index) => `<button class="launcher-node ${this.controls.launcherIndex === index ? 'active' : ''}" data-launcher="${index}" aria-label="Launcher position ${index + 1}"><span>${index + 1}</span></button>`).join('');
+    return `<div class="launcher-rail" aria-label="Launcher rail">${positions}</div>`;
+  }
+
+  renderQueue() {
+    return `<div class="queue-panel">
+      <span class="eyebrow">Incoming sequence</span>
+      <div class="queue">${this.state.queue.slice(0, 5).map((rank, index) => `<div class="queue-core rank-${rank} ${index === 0 ? 'next' : ''}"><span>${coreGlyph(rank, this.settings.symbolic)}</span><small>${index === 0 ? 'NEXT' : `+${index}`}</small></div>`).join('')}</div>
+      <div class="forecast"><span>Forecast</span>${this.state.gravityPreview.map((direction, index) => `<button disabled title="Forecast gravity"><b>${DIRECTION_SYMBOL[direction]}</b><small>${index === 0 ? 'Next' : 'Later'}</small></button>`).join('')}<em>${this.state.fluxChoices} Flux Choice${this.state.fluxChoices === 1 ? '' : 's'}</em></div>
+      ${this.state.fluxChoices > 0 ? `<div class="gravity-programmer"><span>Program next shift</span>${['UP','RIGHT','DOWN','LEFT'].map((direction) => `<button data-gravity="${direction}" class="${this.controls.gravityChoice === direction ? 'active' : ''}" aria-label="Program next gravity ${DIRECTION_LABEL[direction]}">${DIRECTION_SYMBOL[direction]}</button>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  renderControls(preview) {
+    const fusionOptions = preview.valid ? preview.fusionOptions : [];
+    return `<aside class="control-panel">
+      <div class="control-heading"><div><span class="eyebrow">Launch console</span><h2>Commit one precise move</h2></div><span class="checksum">${stateChecksum(this.state)}</span></div>
+      <div class="control-group">
+        <label>Launcher position <output>${this.controls.launcherIndex + 1}</output></label>
+        <input data-control="launcherIndex" type="range" min="0" max="7" step="1" value="${this.controls.launcherIndex}" />
+        <div class="scale"><span>1</span><span>8</span></div>
+      </div>
+      <div class="control-group">
+        <label>Aim vector <output>${this.controls.angleIndex > 0 ? '+' : ''}${this.controls.angleIndex}</output></label>
+        <input data-control="angleIndex" type="range" min="-4" max="4" step="1" value="${this.controls.angleIndex}" />
+        <div class="scale"><span>Counter</span><span>Direct</span><span>Clockwise</span></div>
+      </div>
+      <div class="control-group segmented-group">
+        <label>Impulse</label>
+        <div class="segmented">${[1, 2, 3].map((power) => `<button data-power="${power}" class="${this.controls.powerIndex === power ? 'active' : ''}">${['Soft', 'True', 'Deep'][power - 1]}</button>`).join('')}</div>
+      </div>
+      <div class="control-group segmented-group">
+        <label>Bank protocol</label>
+        <div class="segmented">${['NONE', 'COUNTER', 'CLOCKWISE'].map((bounce) => `<button data-bounce="${bounce}" class="${this.controls.bounce === bounce ? 'active' : ''}">${bounce === 'NONE' ? 'Direct' : bounce === 'COUNTER' ? 'Counter bank' : 'Clockwise bank'}</button>`).join('')}</div>
+      </div>
+      <div class="control-group">
+        <label>Selective fusion</label>
+        <div class="fusion-options">${fusionOptions.length ? fusionOptions.map((option) => `<button data-fusion="${option.direction}" class="${(this.controls.fusionDirection ?? fusionOptions[0].direction) === option.direction ? 'active' : ''}">${DIRECTION_SYMBOL[option.direction]} ${option.direction.toLowerCase()}</button>`).join('') : '<span>No equal neighbour at capture.</span>'}</div>
+      </div>
+      <div class="prediction ${preview.valid ? 'valid' : 'invalid'}">
+        <span>${preview.valid ? 'Predicted capture' : 'Trajectory unavailable'}</span>
+        <strong>${preview.valid ? `R${preview.cell.row + 1} · C${preview.cell.column + 1}` : preview.reason}</strong>
+        ${preview.valid ? `<small>${preview.bounced ? 'One controlled bank · ' : ''}${preview.selectedFusion ? `Fusion ${preview.selectedFusion.direction.toLowerCase()}` : 'Stable capture'}</small>` : ''}
+      </div>
+      <button class="button launch-button" data-action="launch" ${!preview.valid || this.animationLock ? 'disabled' : ''}>
+        <span>Launch rank ${this.state.queue[0]}</span><kbd>Space</kbd>
+      </button>
+      <div class="secondary-actions">
+        <button class="button ghost" data-action="restart">Restart</button>
+        <button class="button ghost" data-action="share">Share</button>
+        <button class="button ghost" data-action="export">Replay</button>
+      </div>
       <p class="control-note">Arrow keys adjust position and vector. Space commits. R restarts.</p>
     </aside>`;
-  }
-
-  renderFooter() {
-    return `<footer><span>${BRAND} · Ruleset ${this.state.rulesetVersion}</span><span>Deterministic by design · Offline ready · No personal data required</span></footer>`;
-  }
-
-  renderSettings() {
-    return `<div class="modal-backdrop" data-action="close-settings"><section class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" data-modal>
-      <div class="modal-head"><div><span class="eyebrow">Interface</span><h2 id="settings-title">Settings</h2></div><button class="icon-button" data-action="close-settings" aria-label="Close settings">×</button></div>
-      ${this.settingToggle('sound', 'Sound cues', 'Hear rank intervals, fusion and Quint resolution.')}
-      ${this.settingToggle('reducedMotion', 'Reduced motion', 'Replace projectile travel and pulses with immediate state changes.')}
-      ${this.settingToggle('highContrast', 'High contrast', 'Increase field, text and trajectory contrast.')}
-      ${this.settingToggle('symbolic', 'Symbolic ranks', 'Use geometric glyphs in addition to colour differentiation.')}
-      <p class="fine-print">Every critical cue remains available visually. Fluxquint™ does not require colour or sound to play.</p>
-    </section></div>`;
-  }
-
-  settingToggle(key, title, description) {
-    return `<label class="setting-row"><span><b>${title}</b><small>${description}</small></span><input type="checkbox" data-setting="${key}" ${this.settings[key] ? 'checked' : ''}/><i></i></label>`;
-  }
-
-  renderHelp() {
-    return `<div class="modal-backdrop"><section class="modal help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
-      <div class="help-visual">${brandMark()}<div class="mini-quint">${[1, 2, 3, 4, 5].map((rank) => `<span class="rank-${rank}">${coreGlyph(rank, this.settings.symbolic)}</span>`).join('')}</div></div>
-      <span class="eyebrow">Welcome to</span><h2 id="help-title">${BRAND}</h2>
-      <p>Launch ranked Cores into a shifting magnetic lattice. The field is deterministic: every forecasted move resolves the same way.</p>
-      <div class="help-rules">
-        <div><i>01</i><span><b>Aim and capture</b><small>The dotted path marks the authoritative destination.</small></span></div>
-        <div><i>02</i><span><b>Fuse equal ranks</b><small>1 + 1 becomes 2, continuing until rank 5.</small></span></div>
-        <div><i>03</i><span><b>Complete the five</b><small>A straight line containing 1, 2, 3, 4 and 5 clears.</small></span></div>
-        <div><i>04</i><span><b>Control the shift</b><small>Every five launches, forecast gravity reorganises the lattice.</small></span></div>
-      </div>
-      <button class="button launch-button" data-action="close-help">Enter the lattice</button>
-    </section></div>`;
-  }
-
-  renderResult() {
-    const complete = this.state.status === 'COMPLETE';
-    const nextLevelIndex = CAMPAIGN_LEVELS.findIndex((item) => item.id === this.levelId) + 1;
-    const hasNextLevel = this.mode === 'campaign' && nextLevelIndex < CAMPAIGN_LEVELS.length;
-    return `<div class="modal-backdrop"><section class="modal result-modal" role="dialog" aria-modal="true">
-      <div class="result-orb">${complete ? '✦' : '×'}</div>
-      <span class="eyebrow">${complete ? 'Field stabilised' : 'Lattice closed'}</span>
-      <h2>${complete ? 'Resonance achieved' : 'Run complete'}</h2>
-      <p>${complete ? 'The objective has been satisfied with a fully reproducible result.' : 'No legal entry lane remains. The next run starts from a clean deterministic field.'}</p>
-      <div class="result-stats"><div><span>Score</span><b>${this.state.score.toLocaleString()}</b></div><div><span>Quints</span><b>${this.state.stats.quints}</b></div><div><span>Best cascade</span><b>${this.state.stats.cascades}</b></div></div>
-      <div class="result-actions">
-        <button class="button ghost" data-action="share">Share result</button>
-        ${hasNextLevel ? `<button class="button launch-button" data-next-level="${CAMPAIGN_LEVELS[nextLevelIndex].id}">Next level</button>` : '<button class="button launch-button" data-action="restart">Run again</button>'}
-      </div>
-    </section></div>`;
-  }
-
-  attachEvents() {
-    this.root.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => this.setMode(button.dataset.mode)));
-    this.root.querySelectorAll('[data-level]').forEach((button) => button.addEventListener('click', () => this.setMode('campaign', button.dataset.level)));
-    this.root.querySelectorAll('[data-next-level]').forEach((button) => button.addEventListener('click', () => this.setMode('campaign', button.dataset.nextLevel)));
-    this.root.querySelectorAll('[data-launcher]').forEach((button) => button.addEventListener('click', () => { this.controls.launcherIndex = Number(button.dataset.launcher); this.render(); }));
-    this.root.querySelectorAll('[data-control]').forEach((input) => input.addEventListener('input', () => { this.controls[input.dataset.control] = Number(input.value); this.render(); }));
-    this.root.querySelectorAll('[data-power]').forEach((button) => button.addEventListener('click', () => { this.controls.powerIndex = Number(button.dataset.power); this.render(); }));

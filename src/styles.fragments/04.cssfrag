@@ -1,3 +1,10 @@
+
+@media (max-width: 1220px) {
+  .topbar { grid-template-columns: 1fr auto; }
+  .mode-nav { grid-row: 2; grid-column: 1 / -1; justify-self: center; margin-bottom: 10px; }
+  .topbar { height: auto; min-height: 84px; padding-top: 10px; }
+  .workspace { grid-template-columns: 230px minmax(480px, 1fr); }
+  .control-panel { grid-column: 1 / -1; min-height: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 28px; }
   .control-heading, .prediction, .launch-button, .secondary-actions, .control-note { grid-column: 1 / -1; }
   .mission-panel, .game-stage { min-height: auto; }
 }

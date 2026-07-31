@@ -1,3 +1,6 @@
+    resolveShiftFusions(state, gravityResult.movedIds);
+  }
+  if (cascade > 1) state.stats.cascades += 1;
   return totalLines;
 }
 

@@ -1,26 +1,36 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const excluded = new Set(['.git', 'dist', 'node_modules']);
-const textExtensions = new Set(['.html', '.js', '.css', '.md', '.json', '.yml', '.yaml', '.webmanifest']);
+const ignored = new Set(['.git', 'dist', 'node_modules']);
 const files = [];
+
 async function walk(directory) {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (excluded.has(entry.name)) continue;
-    const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) await walk(full);
-    else if (textExtensions.has(path.extname(entry.name)) || entry.name === 'LICENSE') files.push(full);
+  for (const name of await readdir(directory)) {
+    if (ignored.has(name)) continue;
+    const full = path.join(directory, name);
+    const info = await stat(full);
+    if (info.isDirectory()) await walk(full);
+    else files.push(path.relative(root, full));
   }
 }
+
 await walk(root);
-let failed = false;
-for (const file of files) {
-  const content = await readFile(file, 'utf8');
-  if (content.includes('FLUXQUINT') && !file.endsWith('check.mjs')) {
-    console.error(`Use the approved Fluxquint™ brand form instead of FLUXQUINT in ${path.relative(root, file)}`);
-    failed = true;
+const required = [
+  'index.html', 'src/main.js', 'src/engine/constants.js', 'src/engine/replay.js',
+  'src/engine/game.fragments/00.jsfrag', 'src/ui/app.fragments/00.jsfrag',
+  'src/styles.fragments/00.cssfrag', 'sw.js', 'public/manifest.webmanifest',
+  '.github/workflows/quality.yml', '.github/workflows/pages.yml'
+];
+for (const file of required) {
+  if (!files.includes(file)) throw new Error(`Required source missing: ${file}`);
+}
+for (const file of files.filter((name) => name !== 'scripts/check.mjs' && /\.(html|js|mjs|json|md|yml|yaml|cssfrag|jsfrag|webmanifest)$/.test(name))) {
+  const content = await readFile(path.join(root, file), 'utf8');
+  if (/\bFluxquint\b(?!™)/u.test(content) && !file.includes('ORIGINALITY_AUDIT')) {
+    const allowedTechnical = /(ZenKOH\/Fluxquint|github\.com\/ZenKOH\/Fluxquint|zenkoh\.github\.io\/Fluxquint|\/Fluxquint\/|fluxquint-|name:\s*Fluxquint)/;
+    const offending = content.split('\n').find((line) => /\bFluxquint\b(?!™)/u.test(line) && !allowedTechnical.test(line));
+    if (offending) throw new Error(`Unmarked Fluxquint brand in ${file}: ${offending.trim()}`);
   }
 }
-if (failed) process.exit(1);
-console.log(`Checked ${files.length} source files. Fluxquint™ brand validation passed.`);
+console.log(`Fluxquint™ source validation passed across ${files.length} files.`);

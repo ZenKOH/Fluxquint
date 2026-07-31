@@ -53,26 +53,3 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .brand-orb { fill: url(#brand-gradient); }
 .brand-mark .brand-orb { fill: var(--accent-2); }
 .brand strong { font-size: 18px; letter-spacing: -.025em; display: block; }
-.brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-.mode-nav { display: inline-flex; gap: 4px; padding: 5px; border: 1px solid var(--line); background: rgba(16, 24, 42, .65); border-radius: 14px; }
-.mode-button { height: 42px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: var(--text-soft); cursor: pointer; transition: .2s ease; }
-.mode-button:hover { color: var(--text); background: rgba(255,255,255,.04); }
-.mode-button.active { color: #061016; background: linear-gradient(135deg, var(--accent), #b4fff5); box-shadow: 0 8px 24px rgba(121,244,228,.15); }
-.top-actions { justify-self: end; display: flex; gap: 8px; align-items: center; }
-.icon-button { width: 42px; height: 42px; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: rgba(16, 24, 42, .62); cursor: pointer; color: var(--text-soft); transition: .2s ease; }
-.icon-button:hover { color: var(--text); border-color: var(--line-strong); transform: translateY(-1px); }
-
-.workspace { width: min(1680px, 100%); margin: 0 auto; display: grid; grid-template-columns: minmax(250px, 300px) minmax(540px, 1fr) minmax(280px, 340px); gap: 22px; align-items: start; padding: 24px 28px 34px; flex: 1; }
-.mission-panel, .control-panel, .game-stage { border: 1px solid var(--line); background: linear-gradient(180deg, rgba(16,24,42,.88), rgba(9,15,27,.84)); border-radius: var(--radius); box-shadow: var(--shadow); }
-.mission-panel, .control-panel { min-height: calc(100vh - 142px); padding: 24px; }
-.game-stage { min-height: calc(100vh - 142px); padding: 17px; overflow: hidden; }
-.eyebrow { color: var(--accent); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; }
-h1, h2, p { margin-top: 0; }
-.mission-panel h1 { margin: 9px 0 12px; font-size: clamp(22px, 2vw, 30px); line-height: 1.08; letter-spacing: -.04em; }
-.mission-panel > p { color: var(--text-soft); font-size: 13px; line-height: 1.65; }
-.objective-card { margin: 20px 0; padding: 15px; border: 1px solid rgba(121,244,228,.18); border-radius: 14px; background: rgba(121,244,228,.045); }
-.objective-card span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
-.objective-card strong { display: block; margin-top: 5px; font-size: 18px; }
-.progress { height: 5px; margin-top: 12px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
-.progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
-.chapter-list { display: grid; gap: 5px; margin: 18px 0 24px; max-height: 240px; overflow: auto; padding-right: 3px; }

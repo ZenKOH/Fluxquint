@@ -1,5 +1,7 @@
 # Fluxquint™
 
+**Current release: v1.1.0**
+
 **Aim. Fuse. Complete the five. Control the shift.**
 
 Fluxquint™ is an original deterministic kinetic logic strategy game. Players launch ranked Cores into an 8×8 magnetic lattice, selectively fuse equal ranks, construct straight Quints containing ranks 1–5, and plan around forecast gravity shifts.
@@ -12,7 +14,7 @@ Fluxquint™ is an original deterministic kinetic logic strategy game. Players l
 - Basic, Harmonic, Shift, Cross and Cascade Quints
 - Five-launch gravity cycle and programmable Flux Choices
 - Endless Flux, Daily Quint, seven-level Campaign and Creative Laboratory
-- Replay export, state checksums and local progression
+- Replay export, state checksums and local progress
 - Mouse, touch and keyboard controls
 - Reduced-motion, high-contrast, symbolic-rank and sound settings
 - Offline Progressive Web App support
@@ -34,7 +36,7 @@ Open `http://localhost:4173`.
 npm run check
 ```
 
-This runs source validation, deterministic engine tests and the production build.
+This runs source-layout and brand validation, deterministic engine and UI regression tests, replay-integrity checks, and the production build.
 
 ## Production build
 
@@ -54,7 +56,7 @@ The deployable site is written to `dist/`.
 
 ## Architecture
 
-The authoritative game rules live in framework-independent JavaScript modules under `src/engine/`. Visual movement never determines scoring or board state. A launch command produces a deterministic capture cell, fusion chain, Quint resolution and gravity result.
+The authoritative game rules live in framework-independent JavaScript modules under `src/engine/`. The repository keeps the three largest browser modules in ordered, readable source fragments; `npm run build` assembles them into normal runtime files in `dist/`. Visual movement never determines scoring or board state. A launch command produces a deterministic capture cell, fusion chain, Quint resolution and gravity result.
 
 See:
 
@@ -68,3 +70,7 @@ See:
 ## Intellectual property
 
 Fluxquint™ and its distinctive game identity are claimed as proprietary intellectual property. The ™ symbol denotes a claimed trademark; it does not represent confirmation of registration. See [`LICENSE`](LICENSE) and the IP documentation before reuse or contribution.
+
+## Deployment
+
+The GitHub Pages workflow builds and validates the application before publishing `dist/`. In repository settings, GitHub Pages must use **GitHub Actions** as its publishing source. The expected project URL is `https://zenkoh.github.io/Fluxquint/`.
