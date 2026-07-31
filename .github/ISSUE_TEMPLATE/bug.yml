@@ -1,0 +1,26 @@
+name: Fluxquint™ bug report
+description: Report a reproducible gameplay or interface problem.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: input
+    id: checksum
+    attributes:
+      label: Replay checksum
+      description: Copy the eight-character value shown in the launch console.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device

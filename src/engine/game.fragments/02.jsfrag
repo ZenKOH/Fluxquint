@@ -1,0 +1,135 @@
+  return totalLines;
+}
+
+function resolveShiftFusions(state, movedIds) {
+  let safety = 0;
+  while (safety < BOARD_SIZE * BOARD_SIZE) {
+    safety += 1;
+    let fused = false;
+    for (const cell of gravityOrder(state.gravity)) {
+      const core = state.board[cell.row][cell.column];
+      if (!core || !movedIds.has(core.id)) continue;
+      if (getFusionOptions(state.board, core.row, core.column, core.rank).length) {
+        resolveFusionChain(state, core.id, null, movedIds);
+        fused = true;
+        break;
+      }
+    }
+    if (!fused) break;
+  }
+}
+
+function updateOccupancy(state) {
+  const occupancy = state.board.flat().filter(Boolean).length;
+  state.stats.maxOccupancy = Math.max(state.stats.maxOccupancy, occupancy);
+  return occupancy;
+}
+
+function objectiveValue(state) {
+  const type = state.objective?.type;
+  if (type === 'turns') return state.turn;
+  if (type === 'score') return state.score;
+  if (type === 'fusions') return state.stats.fusions;
+  if (type === 'quints') return state.stats.quints;
+  if (type === 'harmonicQuints') return state.stats.harmonicQuints;
+  if (type === 'shiftQuints') return state.stats.shiftQuints;
+  if (type === 'fluxBursts') return state.stats.fluxBursts;
+  return 0;
+}
+
+export function objectiveProgress(state) {
+  if (!state.objective) return { complete: false, current: 0, target: 0 };
+  const current = objectiveValue(state);
+  return { complete: current >= state.objective.target, current, target: state.objective.target };
+}
+
+function checkEndState(state) {
+  const progress = objectiveProgress(state);
+  if (state.mode === 'campaign' && progress.complete) {
+    state.status = 'COMPLETE';
+    event(state, 'LEVEL_COMPLETE', { objective: state.objective });
+    return;
+  }
+  if (state.mode === 'daily' && state.turn >= 25) {
+    state.status = 'COMPLETE';
+    event(state, 'DAILY_COMPLETE');
+    return;
+  }
+  const hasLegalMove = Array.from({ length: BOARD_SIZE }, (_, launcherIndex) => launcherIndex)
+    .some((launcherIndex) => previewLaunch(state, { launcherIndex, angleIndex: 0, powerIndex: 2, bounce: 'NONE' }).valid);
+  if (!hasLegalMove) {
+    state.status = 'GAME_OVER';
+    event(state, 'GAME_OVER', { reason: 'No legal entry lane remains.' });
+  }
+}
+
+export function commitLaunch(state, command) {
+  const preview = previewLaunch(state, command);
+  if (!preview.valid) return { state, events: [], error: preview.reason };
+  state.events = [];
+  state.turn += 1;
+  state.stats.launches += 1;
+  const rank = state.queue.shift();
+  ensureQueue(state);
+  const core = { id: nextId(state), rank, row: preview.cell.row, column: preview.cell.column, anchorTurns: 0 };
+  state.board[core.row][core.column] = core;
+  event(state, 'CORE_LAUNCHED', { rank, command: { ...command }, path: preview.path });
+  event(state, 'CORE_CAPTURED', { coreId: core.id, rank, cell: preview.cell });
+
+  resolveFusionChain(state, core.id, command.fusionDirection);
+  resolveQuints(state, 'LAUNCH');
+  state.launchesUntilShift -= 1;
+
+  if (state.launchesUntilShift <= 0) {
+    const requestedDirection = command.gravityChoice;
+    let nextGravity = state.gravityPreview.shift();
+    if (requestedDirection && state.fluxChoices > 0 && DIRECTIONS.includes(requestedDirection)) {
+      nextGravity = requestedDirection;
+      state.fluxChoices -= 1;
+    }
+    state.gravity = nextGravity;
+    state.gravityPreview.push(nextDirection(state.gravity, state.random));
+    state.launchesUntilShift = GRAVITY_INTERVAL;
+    state.stats.gravityShifts += 1;
+    event(state, 'GRAVITY_SHIFTED', { direction: state.gravity });
+    const gravityResult = applyGravity(state.board, state.gravity);
+    state.board = gravityResult.board;
+    resolveShiftFusions(state, gravityResult.movedIds);
+    resolveQuints(state, 'SHIFT');
+  }
+
+  state.replay.push({
+    launcherIndex: command.launcherIndex, angleIndex: command.angleIndex, powerIndex: command.powerIndex,
+    bounce: command.bounce, fusionDirection: command.fusionDirection ?? null, gravityChoice: command.gravityChoice ?? null
+  });
+  updateOccupancy(state);
+  checkEndState(state);
+  return { state, events: [...state.events], preview };
+}
+
+export function cycleLabCell(state, row, column) {
+  if (state.mode !== 'lab') return state;
+  const current = state.board[row][column];
+  if (!current) state.board[row][column] = { id: nextId(state), rank: 1, row, column, anchorTurns: 0 };
+  else if (current.rank < 5) state.board[row][column] = { ...current, rank: current.rank + 1 };
+  else state.board[row][column] = null;
+  updateOccupancy(state);
+  return state;
+}
+
+export function chooseGravity(state, direction) {
+  if (state.fluxChoices <= 0 || !DIRECTIONS.includes(direction)) return false;
+  state.gravityPreview[0] = direction;
+  state.fluxChoices -= 1;
+  event(state, 'GRAVITY_PROGRAMMED', { direction });
+  return true;
+}
+
+export function cloneSerializableState(state) {
+  const { random, events, ...serializable } = state;
+  return JSON.parse(JSON.stringify(serializable));
+}
+
+export function boardSignature(board) {
+  return board.map((row) => row.map((core) => core?.rank ?? 0).join('')).join('/');
+}

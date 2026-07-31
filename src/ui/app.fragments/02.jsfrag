@@ -1,0 +1,78 @@
+        ${brandMark()}<span><strong>${BRAND}</strong><small>Kinetic logic strategy</small></span>
+      </button>
+      <nav class="mode-nav" aria-label="Game modes">
+        ${this.modeButton('endless', 'Endless', 'endless')}
+        ${this.modeButton('daily', 'Daily', 'daily')}
+        ${this.modeButton('campaign', 'Campaign', 'campaign')}
+        ${this.modeButton('lab', 'Laboratory', 'lab')}
+      </nav>
+      <div class="top-actions">
+        ${this.installPrompt ? '<button class="button ghost compact" data-action="install">Install</button>' : ''}
+        <button class="icon-button" data-action="help" aria-label="How to play">${icon('help')}</button>
+        <button class="icon-button" data-action="settings" aria-label="Settings">${icon('settings')}</button>
+      </div>
+    </header>`;
+  }
+
+  modeButton(mode, label, iconName) {
+    return `<button class="mode-button ${this.mode === mode ? 'active' : ''}" data-mode="${mode}" aria-pressed="${this.mode === mode}">${icon(iconName, 18)}<span>${label}</span></button>`;
+  }
+
+  renderMission(level, objective) {
+    const missionTitle = this.mode === 'campaign' ? `${level.chapter} · ${level.title}`
+      : this.mode === 'daily' ? `Daily Quint · ${todayLabel()}`
+        : this.mode === 'lab' ? 'Creative Laboratory' : 'Endless Flux';
+    const missionDescription = this.mode === 'campaign' ? level.description
+      : this.mode === 'daily' ? 'One seed. Twenty-five launches. Build the strongest verified run.'
+        : this.mode === 'lab' ? 'Click any lattice cell to cycle its rank. Design, test and reset freely.'
+          : 'Survive the field. Build deliberate Quints before the lattice closes.';
+    return `<aside class="mission-panel">
+      <div class="eyebrow">Current mission</div>
+      <h1>${missionTitle}</h1>
+      <p>${missionDescription}</p>
+      ${this.mode === 'campaign' ? `
+        <div class="objective-card">
+          <span>Objective</span><strong>${objective.current.toLocaleString()} / ${objective.target.toLocaleString()}</strong>
+          <div class="progress"><i style="width:${Math.min(100, objective.target ? objective.current / objective.target * 100 : 0)}%"></i></div>
+        </div>
+        <div class="chapter-list">${CAMPAIGN_LEVELS.map((item) => `<button data-level="${item.id}" class="chapter ${item.id === this.levelId ? 'active' : ''} ${this.progress.completedLevels.includes(item.id) ? 'complete' : ''}"><span>${item.chapter}</span><b>${item.title}</b><em>${this.progress.completedLevels.includes(item.id) ? '✓' : ''}</em></button>`).join('')}</div>` : ''}
+      <div class="rule-stack">
+        <div><i>1</i><span><b>Fuse equals</b><small>Matching ranks compound.</small></span></div>
+        <div><i>2</i><span><b>Complete 1–5</b><small>Any straight five-rank line clears.</small></span></div>
+        <div><i>3</i><span><b>Read gravity</b><small>Plan around the forecast shift.</small></span></div>
+      </div>
+      <div class="event-log"><div class="eyebrow">Resolution log</div>${this.eventLog.map((entry) => `<p>${entry}</p>`).join('')}</div>
+    </aside>`;
+  }
+
+  renderStatusBar() {
+    return `<div class="status-bar">
+      <div><span>Score</span><strong>${this.state.score.toLocaleString()}</strong></div>
+      <div><span>Turn</span><strong>${this.state.turn}${this.mode === 'daily' ? '/25' : ''}</strong></div>
+      <div><span>Quints</span><strong>${this.state.stats.quints}</strong></div>
+      <div class="gravity-status"><span>Gravity</span><strong>${DIRECTION_SYMBOL[this.state.gravity]} ${DIRECTION_LABEL[this.state.gravity]}</strong></div>
+      <div><span>Shift in</span><strong>${this.state.launchesUntilShift}</strong></div>
+    </div>`;
+  }
+
+  renderBoard(preview) {
+    const targetKey = preview.valid ? `${preview.cell.row}:${preview.cell.column}` : '';
+    const fusionTargetKey = preview.selectedFusion ? `${preview.selectedFusion.row}:${preview.selectedFusion.column}` : '';
+    const cells = [];
+    for (let row = 0; row < BOARD_SIZE; row += 1) {
+      for (let column = 0; column < BOARD_SIZE; column += 1) {
+        const core = this.state.board[row][column];
+        const key = `${row}:${column}`;
+        cells.push(`<button class="cell ${key === targetKey ? 'target' : ''} ${key === fusionTargetKey ? 'fusion-target' : ''}" data-cell="${row},${column}" aria-label="${core ? `Rank ${core.rank} Core at row ${row + 1}, column ${column + 1}` : `Empty cell row ${row + 1}, column ${column + 1}`}">
+          ${core ? `<span class="core rank-${core.rank}" data-core-id="${core.id}"><i></i><b>${coreGlyph(core.rank, this.settings.symbolic)}</b></span>` : ''}
+          ${key === targetKey && !core ? `<span class="capture-ghost rank-${preview.rank}">${coreGlyph(preview.rank, this.settings.symbolic)}</span>` : ''}
+        </button>`);
+      }
+    }
+    return `<div class="board-zone gravity-${this.state.gravity.toLowerCase()}">
+      ${this.renderLauncher()}
+      <div class="board-shell" id="game-board" role="grid" aria-label="8 by 8 magnetic lattice">
+        <div class="field-lines" aria-hidden="true"></div>
+        <svg class="trajectory" viewBox="0 0 800 800" preserveAspectRatio="none" aria-hidden="true">${preview.valid ? this.renderPath(preview.path) : ''}</svg>
+        <div class="board-grid">${cells.join('')}</div>
+      </div>

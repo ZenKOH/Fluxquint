@@ -1,0 +1,126 @@
+        : { row: launcherIndex, column: BOARD_SIZE - 0.2 };
+  if (!bounced) return [start, cell];
+  const edge = direction === 'DOWN' || direction === 'UP'
+    ? { row: (start.row + cell.row) / 2, column: cell.column < BOARD_SIZE / 2 ? -0.15 : BOARD_SIZE - 0.85 }
+    : { row: cell.row < BOARD_SIZE / 2 ? -0.15 : BOARD_SIZE - 0.85, column: (start.column + cell.column) / 2 };
+  return [start, edge, cell];
+}
+
+export function findCaptureCell(board, direction, lane) {
+  if (direction === 'DOWN') {
+    for (let row = 0; row < BOARD_SIZE; row += 1) {
+      if (board[row][lane]) return row === 0 ? null : { row: row - 1, column: lane };
+    }
+    return { row: BOARD_SIZE - 1, column: lane };
+  }
+  if (direction === 'UP') {
+    for (let row = BOARD_SIZE - 1; row >= 0; row -= 1) {
+      if (board[row][lane]) return row === BOARD_SIZE - 1 ? null : { row: row + 1, column: lane };
+    }
+    return { row: 0, column: lane };
+  }
+  if (direction === 'RIGHT') {
+    for (let column = 0; column < BOARD_SIZE; column += 1) {
+      if (board[lane][column]) return column === 0 ? null : { row: lane, column: column - 1 };
+    }
+    return { row: lane, column: BOARD_SIZE - 1 };
+  }
+  for (let column = BOARD_SIZE - 1; column >= 0; column -= 1) {
+    if (board[lane][column]) return column === BOARD_SIZE - 1 ? null : { row: lane, column: column + 1 };
+  }
+  return { row: lane, column: 0 };
+}
+
+function getFusionOptions(board, row, column, rank) {
+  const options = [];
+  for (const direction of FUSION_PRIORITY) {
+    const [rowStep, columnStep] = ADJACENT[direction];
+    const targetRow = row + rowStep;
+    const targetColumn = column + columnStep;
+    if (targetRow < 0 || targetRow >= BOARD_SIZE || targetColumn < 0 || targetColumn >= BOARD_SIZE) continue;
+    const target = board[targetRow][targetColumn];
+    if (target?.rank === rank) options.push({ direction, targetId: target.id, row: targetRow, column: targetColumn });
+  }
+  return options;
+}
+
+function event(state, type, detail = {}) {
+  state.events.push({ type, turn: state.turn, ...detail });
+}
+
+function addScore(state, points, reason) {
+  const delta = Math.round(points * state.multiplier);
+  state.score += delta;
+  event(state, 'SCORE_CHANGED', { delta, reason });
+}
+
+function findCore(board, id) {
+  for (const row of board) for (const core of row) if (core?.id === id) return core;
+  return null;
+}
+
+function resolveFusionChain(state, activeId, preferredDirection, eligibleIds = null) {
+  let current = findCore(state.board, activeId);
+  let preferred = preferredDirection;
+  let safety = 0;
+  while (current && safety < 8) {
+    safety += 1;
+    if (eligibleIds && !eligibleIds.has(current.id)) break;
+    const options = getFusionOptions(state.board, current.row, current.column, current.rank);
+    if (!options.length) break;
+    const selected = options.find((option) => option.direction === preferred) ?? options[0];
+    const target = state.board[selected.row][selected.column];
+    if (!target) break;
+    state.board[current.row][current.column] = null;
+    state.board[selected.row][selected.column] = null;
+
+    if (current.rank === 5) {
+      state.stats.fusions += 1;
+      state.stats.fluxBursts += 1;
+      state.fluxChoices += 1;
+      addScore(state, FLUX_BURST_SCORE, 'Flux Burst');
+      event(state, 'FLUX_BURST', { cells: [{ row: current.row, column: current.column }, { row: target.row, column: target.column }] });
+      current = null;
+      break;
+    }
+
+    const nextRank = current.rank + 1;
+    const nextCore = { id: current.id, rank: nextRank, row: current.row, column: current.column, anchorTurns: 0 };
+    state.board[nextCore.row][nextCore.column] = nextCore;
+    state.stats.fusions += 1;
+    addScore(state, FUSION_SCORE[current.rank], `Rank ${current.rank} fusion`);
+    event(state, 'FUSION_RESOLVED', { fromRank: current.rank, toRank: nextRank, cells: [{ row: current.row, column: current.column }, { row: target.row, column: target.column }] });
+    current = nextCore;
+    if (eligibleIds) eligibleIds.add(nextCore.id);
+    preferred = null;
+  }
+}
+
+function resolveQuints(state, source) {
+  let cascade = 0;
+  let totalLines = 0;
+  while (cascade < 8) {
+    const lines = findQuints(state.board);
+    if (!lines.length) break;
+    cascade += 1;
+    totalLines += lines.length;
+    const cross = hasCross(lines);
+    const shift = source === 'SHIFT';
+    const harmonicCount = lines.filter((line) => line.harmonic).length;
+    const base = lines.reduce((sum, line) => sum + (line.harmonic ? HARMONIC_SCORE : QUINT_SCORE), 0);
+    const shiftMultiplier = shift ? 1.5 : 1;
+    const crossMultiplier = cross ? 1.75 : 1;
+    const cascadeMultiplier = 1 + (cascade - 1) * 0.5;
+    addScore(state, base * shiftMultiplier * crossMultiplier * cascadeMultiplier, `${source.toLowerCase()} Quint cascade`);
+    const cells = quintUnion(lines);
+    for (const cell of cells) state.board[cell.row][cell.column] = null;
+    state.stats.quints += lines.length;
+    state.stats.harmonicQuints += harmonicCount;
+    if (shift) state.stats.shiftQuints += lines.length;
+    if (cross) state.stats.crossQuints += 1;
+    event(state, 'QUINT_COMPLETED', { lines, cells, source, cascade, cross });
+    const gravityResult = applyGravity(state.board, state.gravity);
+    state.board = gravityResult.board;
+    resolveShiftFusions(state, gravityResult.movedIds);
+  }
+  if (cascade > 1) state.stats.cascades += 1;

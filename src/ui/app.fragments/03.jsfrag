@@ -1,0 +1,62 @@
+      <div class="gravity-orbit" aria-label="Current gravity ${DIRECTION_LABEL[this.state.gravity]}">${DIRECTION_SYMBOL[this.state.gravity]}</div>
+    </div>`;
+  }
+
+  renderPath(path) {
+    const points = path.map((point) => `${(point.column + 0.5) * 100},${(point.row + 0.5) * 100}`).join(' ');
+    return `<polyline points="${points}" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 12" vector-effect="non-scaling-stroke"/><circle cx="${(path.at(-1).column + 0.5) * 100}" cy="${(path.at(-1).row + 0.5) * 100}" r="12" fill="none" stroke="currentColor" stroke-width="4" vector-effect="non-scaling-stroke"/>`;
+  }
+
+  renderLauncher() {
+    const positions = Array.from({ length: 8 }, (_, index) => `<button class="launcher-node ${this.controls.launcherIndex === index ? 'active' : ''}" data-launcher="${index}" aria-label="Launcher position ${index + 1}"><span>${index + 1}</span></button>`).join('');
+    return `<div class="launcher-rail" aria-label="Launcher rail">${positions}</div>`;
+  }
+
+  renderQueue() {
+    return `<div class="queue-panel">
+      <span class="eyebrow">Incoming sequence</span>
+      <div class="queue">${this.state.queue.slice(0, 5).map((rank, index) => `<div class="queue-core rank-${rank} ${index === 0 ? 'next' : ''}"><span>${coreGlyph(rank, this.settings.symbolic)}</span><small>${index === 0 ? 'NEXT' : `+${index}`}</small></div>`).join('')}</div>
+      <div class="forecast"><span>Forecast</span>${this.state.gravityPreview.map((direction, index) => `<button disabled title="Forecast gravity"><b>${DIRECTION_SYMBOL[direction]}</b><small>${index === 0 ? 'Next' : 'Later'}</small></button>`).join('')}<em>${this.state.fluxChoices} Flux Choice${this.state.fluxChoices === 1 ? '' : 's'}</em></div>
+      ${this.state.fluxChoices > 0 ? `<div class="gravity-programmer"><span>Program next shift</span>${['UP','RIGHT','DOWN','LEFT'].map((direction) => `<button data-gravity="${direction}" class="${this.controls.gravityChoice === direction ? 'active' : ''}" aria-label="Program next gravity ${DIRECTION_LABEL[direction]}">${DIRECTION_SYMBOL[direction]}</button>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  renderControls(preview) {
+    const fusionOptions = preview.valid ? preview.fusionOptions : [];
+    return `<aside class="control-panel">
+      <div class="control-heading"><div><span class="eyebrow">Launch console</span><h2>Commit one precise move</h2></div><span class="checksum">${stateChecksum(this.state)}</span></div>
+      <div class="control-group">
+        <label>Launcher position <output>${this.controls.launcherIndex + 1}</output></label>
+        <input data-control="launcherIndex" type="range" min="0" max="7" step="1" value="${this.controls.launcherIndex}" />
+        <div class="scale"><span>1</span><span>8</span></div>
+      </div>
+      <div class="control-group">
+        <label>Aim vector <output>${this.controls.angleIndex > 0 ? '+' : ''}${this.controls.angleIndex}</output></label>
+        <input data-control="angleIndex" type="range" min="-4" max="4" step="1" value="${this.controls.angleIndex}" />
+        <div class="scale"><span>Counter</span><span>Direct</span><span>Clockwise</span></div>
+      </div>
+      <div class="control-group segmented-group">
+        <label>Impulse</label>
+        <div class="segmented">${[1, 2, 3].map((power) => `<button data-power="${power}" class="${this.controls.powerIndex === power ? 'active' : ''}">${['Soft', 'True', 'Deep'][power - 1]}</button>`).join('')}</div>
+      </div>
+      <div class="control-group segmented-group">
+        <label>Bank protocol</label>
+        <div class="segmented">${['NONE', 'COUNTER', 'CLOCKWISE'].map((bounce) => `<button data-bounce="${bounce}" class="${this.controls.bounce === bounce ? 'active' : ''}">${bounce === 'NONE' ? 'Direct' : bounce === 'COUNTER' ? 'Counter bank' : 'Clockwise bank'}</button>`).join('')}</div>
+      </div>
+      <div class="control-group">
+        <label>Selective fusion</label>
+        <div class="fusion-options">${fusionOptions.length ? fusionOptions.map((option) => `<button data-fusion="${option.direction}" class="${(this.controls.fusionDirection ?? fusionOptions[0].direction) === option.direction ? 'active' : ''}">${DIRECTION_SYMBOL[option.direction]} ${option.direction.toLowerCase()}</button>`).join('') : '<span>No equal neighbour at capture.</span>'}</div>
+      </div>
+      <div class="prediction ${preview.valid ? 'valid' : 'invalid'}">
+        <span>${preview.valid ? 'Predicted capture' : 'Trajectory unavailable'}</span>
+        <strong>${preview.valid ? `R${preview.cell.row + 1} · C${preview.cell.column + 1}` : preview.reason}</strong>
+        ${preview.valid ? `<small>${preview.bounced ? 'One controlled bank · ' : ''}${preview.selectedFusion ? `Fusion ${preview.selectedFusion.direction.toLowerCase()}` : 'Stable capture'}</small>` : ''}
+      </div>
+      <button class="button launch-button" data-action="launch" ${!preview.valid || this.animationLock ? 'disabled' : ''}>
+        <span>Launch rank ${this.state.queue[0]}</span><kbd>Space</kbd>
+      </button>
+      <div class="secondary-actions">
+        <button class="button ghost" data-action="restart">Restart</button>
+        <button class="button ghost" data-action="share">Share</button>
+        <button class="button ghost" data-action="export">Replay</button>
+      </div>

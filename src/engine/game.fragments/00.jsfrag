@@ -1,0 +1,143 @@
+import {
+  BOARD_SIZE, DIRECTIONS, FUSION_SCORE, GRAVITY_INTERVAL, HARMONIC_SCORE,
+  QUINT_SCORE, FLUX_BURST_SCORE, RULESET_VERSION
+} from './constants.js';
+import { createRandom, shuffle } from './prng.js';
+import { emptyBoard, applyGravity, gravityOrder } from './gravity.js';
+import { findQuints, quintUnion, hasCross } from './quints.js';
+import { CAMPAIGN_LEVELS } from './campaign.js';
+
+const ADJACENT = Object.freeze({
+  UP: [-1, 0], RIGHT: [0, 1], DOWN: [1, 0], LEFT: [0, -1]
+});
+const FUSION_PRIORITY = Object.freeze(['UP', 'RIGHT', 'DOWN', 'LEFT']);
+
+function cloneBoard(board) {
+  return board.map((row) => row.map((core) => core ? { ...core } : null));
+}
+
+function getDateSeed() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `FQ-DAILY-${year}-${month}-${day}`;
+}
+
+function nextId(state) {
+  return `c${state.turn}-${state.nextCoreId++}`;
+}
+
+function makeBag(random) {
+  return shuffle([1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4], random);
+}
+
+function ensureQueue(state, minimum = 8) {
+  while (state.queue.length < minimum) state.queue.push(...makeBag(state.random));
+}
+
+function seedBoard(state, count = 7) {
+  const candidateCells = [];
+  for (let row = 5; row < BOARD_SIZE; row += 1) {
+    for (let column = 0; column < BOARD_SIZE; column += 1) candidateCells.push({ row, column });
+  }
+  for (const cell of shuffle(candidateCells, state.random).slice(0, count)) {
+    const rank = 1 + Math.floor(state.random() * 4);
+    state.board[cell.row][cell.column] = { id: nextId(state), rank, ...cell, anchorTurns: 0 };
+  }
+  if (findQuints(state.board).length) {
+    state.board = emptyBoard();
+    seedBoard(state, count);
+  }
+}
+
+function levelFromId(levelId) {
+  return CAMPAIGN_LEVELS.find((level) => level.id === levelId) ?? CAMPAIGN_LEVELS[0];
+}
+
+export function createGame(options = {}) {
+  const mode = options.mode ?? 'endless';
+  const level = mode === 'campaign' ? levelFromId(options.levelId) : null;
+  const seed = options.seed || (mode === 'daily' ? getDateSeed() : level?.seed ?? `FQ-${Date.now()}`);
+  const random = createRandom(seed);
+  const board = emptyBoard();
+  const state = {
+    rulesetVersion: RULESET_VERSION,
+    seed,
+    mode,
+    levelId: level?.id ?? null,
+    objective: level?.objective ?? (mode === 'daily' ? { type: 'score', target: 5000 } : null),
+    board,
+    queue: level?.queue ? [...level.queue] : [],
+    gravity: level?.gravity ?? 'DOWN',
+    gravityPreview: [],
+    launchesUntilShift: level?.launchesUntilShift ?? GRAVITY_INTERVAL,
+    score: 0,
+    multiplier: 1,
+    fluxChoices: 0,
+    turn: 0,
+    nextCoreId: 1,
+    status: 'PLAYING',
+    events: [],
+    replay: [],
+    random,
+    stats: {
+      launches: 0, fusions: 0, quints: 0, harmonicQuints: 0, shiftQuints: 0,
+      crossQuints: 0, cascades: 0, fluxBursts: 0, gravityShifts: 0, maxOccupancy: 0
+    }
+  };
+
+  state.gravityPreview = level?.gravityPreview ? [...level.gravityPreview] : [nextDirection(state.gravity, random), nextDirection(null, random)];
+  if (level?.board?.length) {
+    for (const item of level.board) {
+      board[item.row][item.column] = { id: nextId(state), rank: item.rank, row: item.row, column: item.column, anchorTurns: 0 };
+    }
+  } else if (mode !== 'campaign' || level?.id === 'mastery') {
+    seedBoard(state, mode === 'daily' ? 9 : 7);
+  }
+  ensureQueue(state);
+  updateOccupancy(state);
+  return state;
+}
+
+function nextDirection(current, random) {
+  const options = current ? DIRECTIONS.filter((direction) => direction !== current) : DIRECTIONS;
+  return options[Math.floor(random() * options.length)];
+}
+
+function normalizeLane(lane, bounce) {
+  if (lane >= 0 && lane < BOARD_SIZE) return lane;
+  if (bounce === 'NONE') return null;
+  if (lane < 0) return Math.min(BOARD_SIZE - 1, Math.abs(lane));
+  return Math.max(0, (BOARD_SIZE - 1) - (lane - (BOARD_SIZE - 1)));
+}
+
+export function previewLaunch(state, command) {
+  if (state.status !== 'PLAYING') return { valid: false, reason: 'The session is not active.' };
+  const angleDelta = command.angleIndex ?? 0;
+  const power = command.powerIndex ?? 2;
+  const rawLane = (command.launcherIndex ?? 3) + Math.round((angleDelta * power) / 3);
+  const lane = normalizeLane(rawLane, command.bounce ?? 'NONE');
+  if (lane === null) return { valid: false, reason: 'Trajectory exits the lattice. Select a bank direction.' };
+  const cell = findCaptureCell(state.board, state.gravity, lane);
+  if (!cell) return { valid: false, reason: 'The entry lane is blocked.' };
+  const rank = state.queue[0];
+  const fusionOptions = getFusionOptions(state.board, cell.row, cell.column, rank);
+  const selectedFusion = fusionOptions.find((option) => option.direction === command.fusionDirection) ?? fusionOptions[0] ?? null;
+  return {
+    valid: true,
+    lane,
+    rawLane,
+    cell,
+    rank,
+    bounced: rawLane !== lane,
+    fusionOptions,
+    selectedFusion,
+    path: makePath(state.gravity, command.launcherIndex ?? 3, cell, rawLane !== lane)
+  };
+}
+
+function makePath(direction, launcherIndex, cell, bounced) {
+  const start = direction === 'DOWN' ? { row: -0.8, column: launcherIndex }
+    : direction === 'UP' ? { row: BOARD_SIZE - 0.2, column: launcherIndex }
+      : direction === 'RIGHT' ? { row: launcherIndex, column: -0.8 }

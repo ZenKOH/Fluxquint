@@ -1,0 +1,19 @@
+    this.root.querySelectorAll('[data-bounce]').forEach((button) => button.addEventListener('click', () => { this.controls.bounce = button.dataset.bounce; this.render(); }));
+    this.root.querySelectorAll('[data-fusion]').forEach((button) => button.addEventListener('click', () => { this.controls.fusionDirection = button.dataset.fusion; this.render(); }));
+    this.root.querySelectorAll('[data-gravity]').forEach((button) => button.addEventListener('click', () => { this.controls.gravityChoice = button.dataset.gravity; this.toast(`Next gravity queued ${button.dataset.gravity.toLowerCase()}.`); this.render(); }));
+    this.root.querySelectorAll('[data-cell]').forEach((button) => button.addEventListener('click', () => { const [row, column] = button.dataset.cell.split(',').map(Number); this.cycleLab(row, column); }));
+    this.root.querySelectorAll('[data-setting]').forEach((input) => input.addEventListener('change', () => this.setSetting(input.dataset.setting, input.checked)));
+    this.root.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', (event) => {
+      const action = button.dataset.action;
+      if (action === 'launch') this.launch();
+      if (action === 'restart' || action === 'home') this.restart();
+      if (action === 'share') this.share();
+      if (action === 'export') this.exportReplay();
+      if (action === 'settings') { this.showSettings = true; this.render(); }
+      if (action === 'close-settings') { if (event.target.matches('[data-modal]')) return; this.showSettings = false; this.render(); }
+      if (action === 'help') { this.showHelp = true; this.render(); }
+      if (action === 'close-help') { localStorage.setItem('fluxquint-trademark:welcomed', '1'); this.showHelp = false; this.render(); }
+      if (action === 'install') this.install();
+    }));
+  }
+}

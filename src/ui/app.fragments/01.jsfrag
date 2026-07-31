@@ -1,0 +1,128 @@
+    return new Promise((resolve) => {
+      const board = this.root.querySelector('.board-shell');
+      if (!board) { resolve(); return; }
+      const traveller = document.createElement('div');
+      traveller.className = `traveller rank-${preview.rank}`;
+      traveller.textContent = coreGlyph(preview.rank, this.settings.symbolic);
+      board.appendChild(traveller);
+      const start = preview.path[0];
+      const end = preview.path[preview.path.length - 1];
+      const x = (end.column + 0.5) / BOARD_SIZE * 100;
+      const y = (end.row + 0.5) / BOARD_SIZE * 100;
+      const startX = (start.column + 0.5) / BOARD_SIZE * 100;
+      const startY = (start.row + 0.5) / BOARD_SIZE * 100;
+      traveller.style.left = `${startX}%`;
+      traveller.style.top = `${startY}%`;
+      requestAnimationFrame(() => {
+        traveller.style.left = `${x}%`;
+        traveller.style.top = `${y}%`;
+      });
+      setTimeout(() => { traveller.remove(); resolve(); }, 360);
+    });
+  }
+
+  describeEvents(events) {
+    for (const item of events) {
+      if (item.type === 'FUSION_RESOLVED') {
+        this.eventLog.unshift(`Fusion: rank ${item.fromRank} became rank ${item.toRank}.`);
+        if (this.settings.sound) playTone(item.toRank);
+      } else if (item.type === 'QUINT_COMPLETED') {
+        const harmonic = item.lines.some((line) => line.harmonic);
+        this.eventLog.unshift(`${harmonic ? 'Harmonic ' : ''}${item.source === 'SHIFT' ? 'Shift ' : ''}Quint completed${item.cascade > 1 ? ` — cascade ${item.cascade}` : ''}.`);
+        if (this.settings.sound) playQuint(harmonic);
+      } else if (item.type === 'GRAVITY_SHIFTED') {
+        this.eventLog.unshift(`Gravity shifted ${DIRECTION_LABEL[item.direction].toLowerCase()}.`);
+      } else if (item.type === 'FLUX_BURST') {
+        this.eventLog.unshift('Flux Burst earned one gravity intervention.');
+      } else if (item.type === 'LEVEL_COMPLETE') {
+        this.eventLog.unshift('Level complete. Resonance stabilised.');
+      } else if (item.type === 'GAME_OVER') {
+        this.eventLog.unshift('No legal entry lane remains.');
+      }
+    }
+    this.eventLog = this.eventLog.slice(0, 8);
+  }
+
+  persistProgress() {
+    const key = `${this.mode}:${this.levelId ?? this.state.seed}`;
+    this.progress.best[key] = Math.max(this.progress.best[key] ?? 0, this.state.score);
+    if (this.mode === 'campaign' && this.state.status === 'COMPLETE' && !this.progress.completedLevels.includes(this.levelId)) {
+      this.progress.completedLevels.push(this.levelId);
+    }
+    saveProgress(this.progress);
+  }
+
+  toast(message) {
+    clearTimeout(this.toastTimer);
+    const toast = this.root.querySelector('.toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    this.toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  share() {
+    const replay = exportReplay(this.state);
+    const text = `${BRAND} ${this.mode === 'daily' ? todayLabel() : this.mode}\nScore ${this.state.score.toLocaleString()} · Quints ${this.state.stats.quints} · Shift ${this.state.stats.shiftQuints}\nReplay ${replay.finalStateHash}`;
+    navigator.clipboard?.writeText(text).then(() => this.toast('Result copied to clipboard.')).catch(() => this.toast(text));
+  }
+
+  exportReplay() {
+    const replay = JSON.stringify(exportReplay(this.state), null, 2);
+    const blob = new Blob([replay], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `fluxquint-trademark-${stateChecksum(this.state)}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  cycleLab(row, column) {
+    if (this.mode !== 'lab') return;
+    cycleLabCell(this.state, row, column);
+    this.render();
+  }
+
+  setSetting(key, value) {
+    this.settings[key] = value;
+    saveSettings(this.settings);
+    this.render();
+  }
+
+  async install() {
+    if (!this.installPrompt) return;
+    await this.installPrompt.prompt();
+    this.installPrompt = null;
+    this.render();
+  }
+
+  render() {
+    document.documentElement.dataset.contrast = this.settings.highContrast ? 'high' : 'standard';
+    document.documentElement.dataset.motion = this.settings.reducedMotion ? 'reduced' : 'full';
+    const preview = this.preview();
+    const objective = objectiveProgress(this.state);
+    const level = CAMPAIGN_LEVELS.find((item) => item.id === this.levelId);
+    this.root.innerHTML = `
+      <div class="app-shell mode-${this.mode}">
+        ${this.renderHeader()}
+        <main class="workspace">
+          ${this.renderMission(level, objective)}
+          <section class="game-stage" aria-label="Fluxquint™ game stage">
+            ${this.renderStatusBar()}
+            ${this.renderBoard(preview)}
+            ${this.renderQueue()}
+          </section>
+          ${this.renderControls(preview)}
+        </main>
+        ${this.renderFooter()}
+        <div class="toast" role="status" aria-live="polite"></div>
+        ${this.showSettings ? this.renderSettings() : ''}
+        ${this.showHelp ? this.renderHelp() : ''}
+        ${this.state.status !== 'PLAYING' ? this.renderResult() : ''}
+      </div>`;
+    this.attachEvents();
+  }
+
+  renderHeader() {
+    return `<header class="topbar">
+      <button class="brand" data-action="home" aria-label="Restart Fluxquint™">
