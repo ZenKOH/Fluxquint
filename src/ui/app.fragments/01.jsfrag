@@ -1,3 +1,33 @@
+    this.eventLog = [`${mode === 'campaign' ? 'Campaign level' : mode[0].toUpperCase() + mode.slice(1)} initialised.`];
+    this.render();
+  }
+
+  restart() {
+    this.setMode(this.mode, this.levelId);
+  }
+
+  preview() {
+    return previewLaunch(this.state, this.controls);
+  }
+
+  async launch() {
+    if (this.animationLock || this.state.status !== 'PLAYING') return;
+    const preview = this.preview();
+    if (!preview.valid) { this.toast(preview.reason); return; }
+    this.animationLock = true;
+    this.render();
+    await this.animateProjectile(preview);
+    const result = commitLaunch(this.state, this.controls);
+    this.controls.fusionDirection = null;
+    if (result.events.some((item) => item.type === 'GRAVITY_SHIFTED')) this.controls.gravityChoice = null;
+    this.describeEvents(result.events);
+    this.persistProgress();
+    this.animationLock = false;
+    this.render();
+  }
+
+  animateProjectile(preview) {
+    if (this.settings.reducedMotion) return Promise.resolve();
     return new Promise((resolve) => {
       const board = this.root.querySelector('.board-shell');
       if (!board) { resolve(); return; }
@@ -46,83 +76,3 @@
   persistProgress() {
     const key = `${this.mode}:${this.levelId ?? this.state.seed}`;
     this.progress.best[key] = Math.max(this.progress.best[key] ?? 0, this.state.score);
-    if (this.mode === 'campaign' && this.state.status === 'COMPLETE' && !this.progress.completedLevels.includes(this.levelId)) {
-      this.progress.completedLevels.push(this.levelId);
-    }
-    saveProgress(this.progress);
-  }
-
-  toast(message) {
-    clearTimeout(this.toastTimer);
-    const toast = this.root.querySelector('.toast');
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add('show');
-    this.toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
-  }
-
-  share() {
-    const replay = exportReplay(this.state);
-    const text = `${BRAND} ${this.mode === 'daily' ? todayLabel() : this.mode}\nScore ${this.state.score.toLocaleString()} · Quints ${this.state.stats.quints} · Shift ${this.state.stats.shiftQuints}\nReplay ${replay.finalStateHash}`;
-    navigator.clipboard?.writeText(text).then(() => this.toast('Result copied to clipboard.')).catch(() => this.toast(text));
-  }
-
-  exportReplay() {
-    const replay = JSON.stringify(exportReplay(this.state), null, 2);
-    const blob = new Blob([replay], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `fluxquint-trademark-${stateChecksum(this.state)}.json`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
-
-  cycleLab(row, column) {
-    if (this.mode !== 'lab') return;
-    cycleLabCell(this.state, row, column);
-    this.render();
-  }
-
-  setSetting(key, value) {
-    this.settings[key] = value;
-    saveSettings(this.settings);
-    this.render();
-  }
-
-  async install() {
-    if (!this.installPrompt) return;
-    await this.installPrompt.prompt();
-    this.installPrompt = null;
-    this.render();
-  }
-
-  render() {
-    document.documentElement.dataset.contrast = this.settings.highContrast ? 'high' : 'standard';
-    document.documentElement.dataset.motion = this.settings.reducedMotion ? 'reduced' : 'full';
-    const preview = this.preview();
-    const objective = objectiveProgress(this.state);
-    const level = CAMPAIGN_LEVELS.find((item) => item.id === this.levelId);
-    this.root.innerHTML = `
-      <div class="app-shell mode-${this.mode}">
-        ${this.renderHeader()}
-        <main class="workspace">
-          ${this.renderMission(level, objective)}
-          <section class="game-stage" aria-label="Fluxquint™ game stage">
-            ${this.renderStatusBar()}
-            ${this.renderBoard(preview)}
-            ${this.renderQueue()}
-          </section>
-          ${this.renderControls(preview)}
-        </main>
-        ${this.renderFooter()}
-        <div class="toast" role="status" aria-live="polite"></div>
-        ${this.showSettings ? this.renderSettings() : ''}
-        ${this.showHelp ? this.renderHelp() : ''}
-        ${this.state.status !== 'PLAYING' ? this.renderResult() : ''}
-      </div>`;
-    this.attachEvents();
-  }
-
-  renderHeader() {
-    return `<header class="topbar">
-      <button class="brand" data-action="home" aria-label="Restart Fluxquint™">

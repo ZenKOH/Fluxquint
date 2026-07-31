@@ -1,8 +1,22 @@
+    rank,
+    bounced,
+    bank,
+    fusionOptions,
+    selectedFusion,
+    path: makePath(state.gravity, command.launcherIndex ?? 3, cell, bank)
+  };
+}
+
+function makePath(direction, launcherIndex, cell, bank) {
+  const start = direction === 'DOWN' ? { row: -0.8, column: launcherIndex }
+    : direction === 'UP' ? { row: BOARD_SIZE - 0.2, column: launcherIndex }
+      : direction === 'RIGHT' ? { row: launcherIndex, column: -0.8 }
         : { row: launcherIndex, column: BOARD_SIZE - 0.2 };
-  if (!bounced) return [start, cell];
+  if (!bank) return [start, cell];
+  const counterEdge = bank === 'COUNTER';
   const edge = direction === 'DOWN' || direction === 'UP'
-    ? { row: (start.row + cell.row) / 2, column: cell.column < BOARD_SIZE / 2 ? -0.15 : BOARD_SIZE - 0.85 }
-    : { row: cell.row < BOARD_SIZE / 2 ? -0.15 : BOARD_SIZE - 0.85, column: (start.column + cell.column) / 2 };
+    ? { row: (start.row + cell.row) / 2, column: counterEdge ? -0.15 : BOARD_SIZE - 0.85 }
+    : { row: counterEdge ? -0.15 : BOARD_SIZE - 0.85, column: (start.column + cell.column) / 2 };
   return [start, edge, cell];
 }
 
@@ -121,6 +135,3 @@ function resolveQuints(state, source) {
     event(state, 'QUINT_COMPLETED', { lines, cells, source, cascade, cross });
     const gravityResult = applyGravity(state.board, state.gravity);
     state.board = gravityResult.board;
-    resolveShiftFusions(state, gravityResult.movedIds);
-  }
-  if (cascade > 1) state.stats.cascades += 1;

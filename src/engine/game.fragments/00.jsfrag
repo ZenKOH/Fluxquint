@@ -16,11 +16,10 @@ function cloneBoard(board) {
   return board.map((row) => row.map((core) => core ? { ...core } : null));
 }
 
-function getDateSeed() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+export function getDailySeed(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `FQ-DAILY-${year}-${month}-${day}`;
 }
 
@@ -58,7 +57,7 @@ function levelFromId(levelId) {
 export function createGame(options = {}) {
   const mode = options.mode ?? 'endless';
   const level = mode === 'campaign' ? levelFromId(options.levelId) : null;
-  const seed = options.seed || (mode === 'daily' ? getDateSeed() : level?.seed ?? `FQ-${Date.now()}`);
+  const seed = options.seed || (mode === 'daily' ? getDailySeed() : level?.seed ?? `FQ-${Date.now()}`);
   const random = createRandom(seed);
   const board = emptyBoard();
   const state = {
@@ -106,10 +105,14 @@ function nextDirection(current, random) {
 }
 
 function normalizeLane(lane, bounce) {
-  if (lane >= 0 && lane < BOARD_SIZE) return lane;
-  if (bounce === 'NONE') return null;
-  if (lane < 0) return Math.min(BOARD_SIZE - 1, Math.abs(lane));
-  return Math.max(0, (BOARD_SIZE - 1) - (lane - (BOARD_SIZE - 1)));
+  if (lane >= 0 && lane < BOARD_SIZE) return { lane, bounced: false, bank: null };
+  if (lane < 0 && bounce === 'COUNTER') {
+    return { lane: Math.min(BOARD_SIZE - 1, (-lane) - 1), bounced: true, bank: 'COUNTER' };
+  }
+  if (lane >= BOARD_SIZE && bounce === 'CLOCKWISE') {
+    return { lane: Math.max(0, (BOARD_SIZE * 2) - lane - 1), bounced: true, bank: 'CLOCKWISE' };
+  }
+  return null;
 }
 
 export function previewLaunch(state, command) {
@@ -117,8 +120,12 @@ export function previewLaunch(state, command) {
   const angleDelta = command.angleIndex ?? 0;
   const power = command.powerIndex ?? 2;
   const rawLane = (command.launcherIndex ?? 3) + Math.round((angleDelta * power) / 3);
-  const lane = normalizeLane(rawLane, command.bounce ?? 'NONE');
-  if (lane === null) return { valid: false, reason: 'Trajectory exits the lattice. Select a bank direction.' };
+  const laneResult = normalizeLane(rawLane, command.bounce ?? 'NONE');
+  if (!laneResult) {
+    const requiredBank = rawLane < 0 ? 'Counter bank' : 'Clockwise bank';
+    return { valid: false, reason: `Trajectory exits the lattice. Select ${requiredBank}.` };
+  }
+  const { lane, bounced, bank } = laneResult;
   const cell = findCaptureCell(state.board, state.gravity, lane);
   if (!cell) return { valid: false, reason: 'The entry lane is blocked.' };
   const rank = state.queue[0];
@@ -129,15 +136,3 @@ export function previewLaunch(state, command) {
     lane,
     rawLane,
     cell,
-    rank,
-    bounced: rawLane !== lane,
-    fusionOptions,
-    selectedFusion,
-    path: makePath(state.gravity, command.launcherIndex ?? 3, cell, rawLane !== lane)
-  };
-}
-
-function makePath(direction, launcherIndex, cell, bounced) {
-  const start = direction === 'DOWN' ? { row: -0.8, column: launcherIndex }
-    : direction === 'UP' ? { row: BOARD_SIZE - 0.2, column: launcherIndex }
-      : direction === 'RIGHT' ? { row: launcherIndex, column: -0.8 }

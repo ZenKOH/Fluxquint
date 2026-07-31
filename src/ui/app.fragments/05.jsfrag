@@ -1,3 +1,63 @@
+  }
+
+  renderFooter() {
+    return `<footer><span>${BRAND} · Ruleset ${this.state.rulesetVersion}</span><span>Deterministic by design · Offline ready · No personal data required</span></footer>`;
+  }
+
+  renderSettings() {
+    return `<div class="modal-backdrop" data-action="settings-backdrop"><section class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" data-modal>
+      <div class="modal-head"><div><span class="eyebrow">Interface</span><h2 id="settings-title">Settings</h2></div><button class="icon-button" data-action="close-settings" aria-label="Close settings">×</button></div>
+      ${this.settingToggle('sound', 'Sound cues', 'Hear rank intervals, fusion and Quint resolution.')}
+      ${this.settingToggle('reducedMotion', 'Reduced motion', 'Replace projectile travel and pulses with immediate state changes.')}
+      ${this.settingToggle('highContrast', 'High contrast', 'Increase field, text and trajectory contrast.')}
+      ${this.settingToggle('symbolic', 'Symbolic ranks', 'Use geometric glyphs in addition to colour differentiation.')}
+      <p class="fine-print">Every critical cue remains available visually. Fluxquint™ does not require colour or sound to play.</p>
+    </section></div>`;
+  }
+
+  settingToggle(key, title, description) {
+    return `<label class="setting-row"><span><b>${title}</b><small>${description}</small></span><input type="checkbox" data-setting="${key}" ${this.settings[key] ? 'checked' : ''}/><i></i></label>`;
+  }
+
+  renderHelp() {
+    return `<div class="modal-backdrop"><section class="modal help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="help-visual">${brandMark()}<div class="mini-quint">${[1, 2, 3, 4, 5].map((rank) => `<span class="rank-${rank}">${coreGlyph(rank, this.settings.symbolic)}</span>`).join('')}</div></div>
+      <span class="eyebrow">Welcome to</span><h2 id="help-title">${BRAND}</h2>
+      <p>Launch ranked Cores into a shifting magnetic lattice. The field is deterministic: every forecasted move resolves the same way.</p>
+      <div class="help-rules">
+        <div><i>01</i><span><b>Aim and capture</b><small>The dotted path marks the authoritative destination.</small></span></div>
+        <div><i>02</i><span><b>Fuse equal ranks</b><small>1 + 1 becomes 2, continuing until rank 5.</small></span></div>
+        <div><i>03</i><span><b>Complete the five</b><small>A straight line containing 1, 2, 3, 4 and 5 clears.</small></span></div>
+        <div><i>04</i><span><b>Control the shift</b><small>Every five launches, forecast gravity reorganises the lattice.</small></span></div>
+      </div>
+      <button class="button launch-button" data-action="close-help">Enter the lattice</button>
+    </section></div>`;
+  }
+
+  renderResult() {
+    const complete = this.state.status === 'COMPLETE';
+    const nextLevelIndex = CAMPAIGN_LEVELS.findIndex((item) => item.id === this.levelId) + 1;
+    const hasNextLevel = this.mode === 'campaign' && nextLevelIndex < CAMPAIGN_LEVELS.length;
+    return `<div class="modal-backdrop"><section class="modal result-modal" role="dialog" aria-modal="true">
+      <div class="result-orb">${complete ? '✦' : '×'}</div>
+      <span class="eyebrow">${complete ? 'Field stabilised' : 'Lattice closed'}</span>
+      <h2>${complete ? 'Resonance achieved' : 'Run complete'}</h2>
+      <p>${complete ? 'The objective has been satisfied with a fully reproducible result.' : 'No legal entry lane remains. The next run starts from a clean deterministic field.'}</p>
+      <div class="result-stats"><div><span>Score</span><b>${this.state.score.toLocaleString()}</b></div><div><span>Quints</span><b>${this.state.stats.quints}</b></div><div><span>Cascades</span><b>${this.state.stats.cascades}</b></div></div>
+      <div class="result-actions">
+        <button class="button ghost" data-action="share">Share result</button>
+        ${hasNextLevel ? `<button class="button launch-button" data-next-level="${CAMPAIGN_LEVELS[nextLevelIndex].id}">Next level</button>` : '<button class="button launch-button" data-action="restart">Run again</button>'}
+      </div>
+    </section></div>`;
+  }
+
+  attachEvents() {
+    this.root.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => this.setMode(button.dataset.mode)));
+    this.root.querySelectorAll('[data-level]').forEach((button) => button.addEventListener('click', () => this.setMode('campaign', button.dataset.level)));
+    this.root.querySelectorAll('[data-next-level]').forEach((button) => button.addEventListener('click', () => this.setMode('campaign', button.dataset.nextLevel)));
+    this.root.querySelectorAll('[data-launcher]').forEach((button) => button.addEventListener('click', () => { this.controls.launcherIndex = Number(button.dataset.launcher); this.render(); }));
+    this.root.querySelectorAll('[data-control]').forEach((input) => input.addEventListener('input', () => { this.controls[input.dataset.control] = Number(input.value); this.render(); }));
+    this.root.querySelectorAll('[data-power]').forEach((button) => button.addEventListener('click', () => { this.controls.powerIndex = Number(button.dataset.power); this.render(); }));
     this.root.querySelectorAll('[data-bounce]').forEach((button) => button.addEventListener('click', () => { this.controls.bounce = button.dataset.bounce; this.render(); }));
     this.root.querySelectorAll('[data-fusion]').forEach((button) => button.addEventListener('click', () => { this.controls.fusionDirection = button.dataset.fusion; this.render(); }));
     this.root.querySelectorAll('[data-gravity]').forEach((button) => button.addEventListener('click', () => { this.controls.gravityChoice = button.dataset.gravity; this.toast(`Next gravity queued ${button.dataset.gravity.toLowerCase()}.`); this.render(); }));
@@ -10,9 +70,9 @@
       if (action === 'share') this.share();
       if (action === 'export') this.exportReplay();
       if (action === 'settings') { this.showSettings = true; this.render(); }
-      if (action === 'close-settings') { if (event.target.matches('[data-modal]')) return; this.showSettings = false; this.render(); }
+      if (action === 'close-settings' || action === 'settings-backdrop') this.closeSettings(event);
       if (action === 'help') { this.showHelp = true; this.render(); }
-      if (action === 'close-help') { localStorage.setItem('fluxquint-trademark:welcomed', '1'); this.showHelp = false; this.render(); }
+      if (action === 'close-help') this.closeHelp();
       if (action === 'install') this.install();
     }));
   }

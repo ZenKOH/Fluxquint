@@ -23,6 +23,7 @@ await writeFile(path.join(dist, 'src/styles.css'), await joinFragments(path.join
 await rm(path.join(dist, 'src/engine/game.fragments'), { recursive: true, force: true });
 await rm(path.join(dist, 'src/ui/app.fragments'), { recursive: true, force: true });
 await rm(path.join(dist, 'src/styles.fragments'), { recursive: true, force: true });
+await writeFile(path.join(dist, '.nojekyll'), '');
 
 const html = await readFile(path.join(dist, 'index.html'), 'utf8');
 if (!html.includes('Fluxquint™')) throw new Error('Brand validation failed: Fluxquint™ is missing from index.html.');

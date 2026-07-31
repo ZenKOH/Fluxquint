@@ -1,6 +1,6 @@
 {
   "name": "fluxquint-trademark-game",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Fluxquint™ — deterministic kinetic logic strategy game.",
