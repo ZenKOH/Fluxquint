@@ -1,0 +1,53 @@
+name: Materialise Fluxquint™ Pages assets
+
+on:
+  push:
+    branches:
+      - main
+      - agent/pages-root-fix-v1.1.1
+    paths:
+      - 'src/engine/game.fragments/**'
+      - 'src/ui/app.fragments/**'
+      - 'src/styles.fragments/**'
+      - 'scripts/build.mjs'
+      - '.github/workflows/materialise-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialise-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  materialise:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate and build
+        run: npm run check
+      - name: Publish browser-ready source files
+        run: |
+          cp dist/src/engine/game.js src/engine/game.js
+          cp dist/src/ui/app.js src/ui/app.js
+          cp dist/src/styles.css src/styles.css
+          cp dist/.nojekyll .nojekyll
+      - name: Commit materialised assets
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .nojekyll src/engine/game.js src/ui/app.js src/styles.css
+          if git diff --cached --quiet; then
+            echo 'Browser-ready assets are already current.'
+          else
+            git commit -m 'Materialise browser-ready Fluxquint™ assets'
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
