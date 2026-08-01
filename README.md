@@ -1,6 +1,6 @@
 # Fluxquint™
 
-**Current release: v1.1.0**
+**Current release: v1.1.1**
 
 **Aim. Fuse. Complete the five. Control the shift.**
 
@@ -36,7 +36,7 @@ Open `http://localhost:4173`.
 npm run check
 ```
 
-This runs source-layout and brand validation, deterministic engine and UI regression tests, replay-integrity checks, and the production build.
+This runs source-layout and brand validation, confirms that the browser-ready Pages assets match their source fragments, executes deterministic engine and UI regression tests, verifies replay integrity, and creates the production build.
 
 ## Production build
 
@@ -56,7 +56,7 @@ The deployable site is written to `dist/`.
 
 ## Architecture
 
-The authoritative game rules live in framework-independent JavaScript modules under `src/engine/`. The repository keeps the three largest browser modules in ordered, readable source fragments; `npm run build` assembles them into normal runtime files in `dist/`. Visual movement never determines scoring or board state. A launch command produces a deterministic capture cell, fusion chain, Quint resolution and gravity result.
+The authoritative game rules live in framework-independent JavaScript modules under `src/engine/`. The repository keeps the three largest browser modules in ordered, readable source fragments; `npm run build` assembles them into normal runtime files. The materialisation workflow also commits those browser-ready files to the repository root so either GitHub Pages publishing mode can serve a functioning game. Visual movement never determines scoring or board state. A launch command produces a deterministic capture cell, fusion chain, Quint resolution and gravity result.
 
 See:
 
@@ -73,4 +73,8 @@ Fluxquint™ and its distinctive game identity are claimed as proprietary intell
 
 ## Deployment
 
-The GitHub Pages workflow builds and validates the application before publishing `dist/`. In repository settings, GitHub Pages must use **GitHub Actions** as its publishing source. The expected project URL is `https://zenkoh.github.io/Fluxquint/`.
+The preferred GitHub Pages source is **GitHub Actions**, which validates and publishes `dist/`. Fluxquint™ v1.1.1 also includes materialised `src/styles.css`, `src/ui/app.js`, `src/engine/game.js`, and `.nojekyll` at repository root, so direct deployment from the `main` branch works as a fallback.
+
+Expected URL: `https://zenkoh.github.io/Fluxquint/`
+
+If only “Skip to game board” appears, the site is serving an older root snapshot without the materialised browser assets. Wait for the Pages deployment to finish, then perform a hard refresh or clear the old service-worker/site data once.

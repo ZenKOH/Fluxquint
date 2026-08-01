@@ -1,4 +1,4 @@
-const CACHE = 'fluxquint-trademark-v1.1.0';
+const CACHE = 'fluxquint-trademark-v1.1.1';
 const ASSETS = [
   './', './index.html', './src/styles.css', './src/main.js', './src/ui/app.js', './src/ui/sound.js',
   './src/ui/storage.js', './src/engine/constants.js', './src/engine/prng.js', './src/engine/quints.js',
@@ -9,11 +9,13 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(caches.keys()
     .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
     .then(() => self.clients.claim()));
 });
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
