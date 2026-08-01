@@ -2,9 +2,8 @@ name: Materialise Fluxquint™ Pages assets
 
 on:
   push:
-    branches:
-      - main
-      - agent/pages-root-fix-v1.1.1
+    branches-ignore:
+      - gh-pages
     paths:
       - 'src/engine/game.fragments/**'
       - 'src/ui/app.fragments/**'
@@ -32,14 +31,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Validate and build
-        run: npm run check
+      - name: Build browser-ready assets
+        run: npm run build
       - name: Publish browser-ready source files
         run: |
           cp dist/src/engine/game.js src/engine/game.js
           cp dist/src/ui/app.js src/ui/app.js
           cp dist/src/styles.css src/styles.css
           cp dist/.nojekyll .nojekyll
+      - name: Validate completed build
+        run: npm run check
       - name: Commit materialised assets
         run: |
           git config user.name 'github-actions[bot]'
